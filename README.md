@@ -1,14 +1,39 @@
-# Orca Workshop Plugin
+# Inside the Black Box
 
-A right-sidebar panel written in TSX. Orca transpiles `src/panel.tsx` when the panel loads, so there is no build step and no build folder: edit, save, and the panel reloads. `orca plugin types .` (also run by `orca plugin dev watch`) writes the editor typings to `.orca/types/`, which `tsconfig.json` extends; run `npx tsc -p .` to type-check. `orca plugin test .` runs `src/panel.test.tsx` in Node with `orca/testing`, and `orca plugin check .` renders the panel once and reports errors with file:line. Import only `orca` and relative files.
+An Orca sidebar panel that explains AI and AI safety for designers: what happens inside the
+model, where it goes wrong, and how people keep it safe. Every term comes with a plain-language
+definition and a **designer's lens**, an analogy from design practice.
+
+- **Flashcards**: flip a term to see its definition and designer's lens; mark the ones you know.
+- **Quiz**: scenario questions per topic, with explanations and a saved best score.
+- **Dictionary**: search all 40 terms.
+
+Topics: The basics · Inside the model · Shaping behavior · Where it goes wrong · AI safety.
+
+## Install
+
+```sh
+orca plugin install sofiacnm/orca-workshop-plugin
+```
+
+The plugin only draws a sandboxed panel. It asks for no network, file or terminal access.
+
+## Edit the content
+
+All terms and questions live in `src/content.ts`. Add a `Term` or `Question` there and the
+flashcards, quiz and dictionary pick it up.
 
 ## Develop
 
+Orca transpiles `src/panel.tsx` when the panel loads: no build step. `tsconfig.json` extends the
+typings that `orca plugin types .` writes to `.orca/types/`.
+
 ```sh
+orca plugin dev watch .   # load into Orca, stream logs, reload on save
+orca plugin test .        # src/panel.test.tsx
+orca plugin check .       # render once and report errors
+npx tsc -p .              # type-check
 orca plugin validate .
-orca plugin dev watch .    # loads this folder into Orca and prints its logs and reloads; Ctrl-C unloads it
 ```
 
-Orca names the publisher after where the plugin is installed from: the GitHub or GitLab owner of
-its repository, or `local` for a folder. See
-https://github.com/stablyai/orca/blob/main/docs/reference/plugin-authoring.md.
+See https://github.com/stablyai/orca/blob/main/docs/reference/plugin-authoring.md.

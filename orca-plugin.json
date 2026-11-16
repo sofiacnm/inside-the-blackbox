@@ -1,9 +1,9 @@
 {
   "manifestVersion": 2,
-  "id": "orca-workshop-plugin",
-  "name": "Orca Workshop Plugin",
+  "id": "inside-the-black-box",
+  "name": "Inside the Black Box",
   "version": "0.1.0",
-  "description": "A sidebar panel built from Orca components.",
+  "description": "An AI and AI-safety dictionary for designers, with flashcards and quizzes.",
   "engines": {
     "orca": ">=1.4.246"
   },
@@ -12,9 +12,9 @@
   "contributes": {
     "panels": [
       {
-        "id": "orca-workshop-plugin",
-        "title": "Orca Workshop Plugin",
-        "icon": "blocks",
+        "id": "inside-the-black-box",
+        "title": "Inside the Black Box",
+        "icon": "book",
         "entry": "src/panel.tsx",
         "ui": "components"
       }
