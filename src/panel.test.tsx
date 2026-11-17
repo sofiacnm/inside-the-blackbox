@@ -39,7 +39,7 @@ test('library → dashboard → bite → complete builds the streak and XP', asy
   assert.ok(view.find({ text: 'Neural Networks' }))
 
   await view.press({ text: 'Continue' })
-  assert.ok(view.find({ text: 'DAY STREAK' }))
+  assert.ok(has(view, '0 day streak'))
   await view.press({ text: 'Start' })
 
   const bite = pickBite([], [])
@@ -86,7 +86,7 @@ test('the dictionary opens from the dashboard and returns there', async () => {
   await view.type({ label: 'Search the dictionary' }, 'zzzz', { replace: true })
   assert.deepEqual(titles(), [])
   await view.press({ text: '‹ Back' })
-  assert.ok(view.find({ text: 'DAY STREAK' }))
+  assert.ok(has(view, '0 day streak'))
   assert.deepEqual(view.errors, [])
   await view.unmount()
 })

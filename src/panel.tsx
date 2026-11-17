@@ -24,7 +24,7 @@ import {
   update,
 } from 'orca'
 import { searchTerms, TERMS, topicLabel, TOPICS } from './content'
-import { BLACK_BOX_ID, COURSES, UNIT_IMAGES, type Course, type CourseImage } from './courses'
+import { COURSES, UNIT_IMAGES, type Course, type CourseImage } from './courses'
 import {
   CARDS_PER_BITE,
   currentTopic,
@@ -153,26 +153,30 @@ function Credit({ image }: { image: CourseImage }) {
 function Week() {
   const week = recentDays(read(days), new Date())
   return (
-    <Row gap="sm">
+    <Grid columns={5} gap="sm">
       {week.map((d) => (
-        <Stack key={d.key} gap="xs" align="center">
+        <Box key={d.key} direction="column" gap="xs" align="center">
           <Box
-            width={34}
-            height={34}
+            width="100%"
+            height={40}
             radius="sm"
             align="center"
             justify="center"
             background={d.done ? 'accent' : 'none'}
             border={d.done ? false : 'accent'}
           >
-            {d.done ? <Image src="assets/icons/check.png" alt="Done" size="xs" /> : null}
+            {d.done ? (
+              <Box width={20} height={20}>
+                <Image src="assets/icons/check.png" alt="Done" size="full" fit="contain" />
+              </Box>
+            ) : null}
           </Box>
           <Text size="xs" muted={!d.today} weight={d.today ? 'semibold' : 'regular'}>
             {d.label}
           </Text>
-        </Stack>
+        </Box>
       ))}
-    </Row>
+    </Grid>
   )
 }
 
@@ -180,7 +184,13 @@ function Week() {
 
 function CourseCard({ course }: { course: Course }) {
   const badge =
-    course.status === 'capstone' ? <Badge>Capstone</Badge> : course.status === 'soon' ? <Badge>Coming soon</Badge> : null
+    course.status === 'active' ? (
+      <Badge tone="accent">Current course</Badge>
+    ) : course.status === 'capstone' ? (
+      <Badge>Capstone</Badge>
+    ) : (
+      <Badge>Coming soon</Badge>
+    )
   return (
     <Box border radius="md" padding="sm">
       <Row gap="md" align="start">
@@ -216,8 +226,8 @@ function Library() {
     <Stack gap="lg">
       <Box border="accent" radius="lg" padding="md">
         <Stack gap="sm">
-          <Row justify="between" align="center">
-            <Badge tone="accent">{doneToday ? 'Done for today' : `Continue · day ${streak + 1}`}</Badge>
+          <Row justify={doneToday ? 'end' : 'between'} align="center">
+            {doneToday ? null : <Badge tone="accent">{`Continue · day ${streak + 1}`}</Badge>}
             <LessonsChip />
           </Row>
           <Heading level={2}>Inside the Black Box</Heading>
@@ -235,7 +245,7 @@ function Library() {
       <Stack gap="sm">
         <Heading level={3}>Top courses</Heading>
         <Stack gap="sm">
-          {COURSES.filter((c) => c.id !== BLACK_BOX_ID).map((c) => (
+          {COURSES.map((c) => (
             <CourseCard key={c.id} course={c} />
           ))}
         </Stack>
@@ -262,20 +272,20 @@ function Course() {
         <Button variant="ghost" size="sm" onPress={() => go('library')}>
           ‹ Courses
         </Button>
-        <Row gap="xs">
-          <Badge>{`LV ${level(points)}`}</Badge>
-          <Badge>{`${points} XP`}</Badge>
-        </Row>
+        <DictionaryButton />
       </Row>
 
       <Stack gap="md">
         <Row gap="md" align="center">
-          <Image src="assets/icons/flame.png" alt="" size="sm" />
+          <Box width={56} height={56} shrink={false}>
+            <Image src="assets/icons/flame-large.png" alt="" size="full" fit="contain" />
+          </Box>
           <Stack gap="xs">
-            <Heading level={1}>{String(streak)}</Heading>
-            <Text muted size="sm" weight="medium">
-              DAY STREAK
-            </Text>
+            <Heading level={1}>{`${streak} day streak`}</Heading>
+            <Row gap="xs">
+              <Badge>{`LV ${level(points)}`}</Badge>
+              <Badge>{`${points} XP`}</Badge>
+            </Row>
           </Stack>
         </Row>
         <Week />
@@ -323,9 +333,6 @@ function Course() {
           )
         })}
       </List>
-      <Row justify="end">
-        <DictionaryButton />
-      </Row>
     </Stack>
   )
 }
@@ -440,7 +447,9 @@ function Complete() {
   return (
     <Stack gap="lg" align="center">
       <Heading level={1}>Bite complete!</Heading>
-      <Image src="assets/images/orca-celebrate.png" alt="Orca celebrating with a heart" size="md" fit="contain" />
+      <Box width={140} height={140}>
+        <Image src="assets/icons/flame-large.png" alt="Streak flame" size="full" fit="contain" />
+      </Box>
       <Box width="100%">
         <Grid columns={3} gap="sm">
           <Box border="accent" radius="md" padding="sm" align="center">
