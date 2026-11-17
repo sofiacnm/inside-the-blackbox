@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "inside-the-black-box",
   "name": "Inside the Black Box",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Learn the language of AI in daily bites: streaks, flashcards, quizzes and a dictionary for designers.",
   "license": "MIT",
   "repository": "https://github.com/sofiacnm/orca-workshop-plugin",

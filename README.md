@@ -63,3 +63,7 @@ orca plugin validate .
 ```
 
 See https://github.com/stablyai/orca/blob/main/docs/reference/plugin-authoring.md.
+
+## License
+
+Code and writing: MIT (see LICENSE). Third-party images in `assets/images` keep their own licenses, listed under Image credits.
