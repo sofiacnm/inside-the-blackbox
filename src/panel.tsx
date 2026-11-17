@@ -29,7 +29,7 @@ import {
   CARDS_PER_BITE,
   currentTopic,
   dayKey,
-  lastWeek,
+  recentDays,
   level,
   pickBite,
   question,
@@ -118,9 +118,24 @@ function finishBite() {
 
 function DictionaryButton() {
   return (
-    <Row justify="end">
-      <IconButton icon="book" label="Open dictionary" tooltip="Dictionary" variant="solid" tone="accent" onPress={openDictionary} />
-    </Row>
+    <Button variant="outline" icon="book" onPress={openDictionary}>
+      Dictionary
+    </Button>
+  )
+}
+
+/** Flame plus the number of lessons finished so far. */
+function LessonsChip() {
+  const completed = read(days).length
+  return (
+    <Box border="accent" radius="sm" paddingX="sm" paddingY="xs">
+      <Row gap="xs" align="center">
+        <Box width={18} height={18} shrink={false}>
+          <Image src="assets/icons/flame.png" alt="" size="full" fit="contain" />
+        </Box>
+        <Text weight="semibold">{String(completed)}</Text>
+      </Row>
+    </Box>
   )
 }
 
@@ -136,9 +151,9 @@ function Credit({ image }: { image: CourseImage }) {
 }
 
 function Week() {
-  const week = lastWeek(read(days), new Date())
+  const week = recentDays(read(days), new Date())
   return (
-    <Row justify="between">
+    <Row gap="sm">
       {week.map((d) => (
         <Stack key={d.key} gap="xs" align="center">
           <Box
@@ -199,34 +214,22 @@ function Library() {
   const doneToday = read(days).includes(dayKey(new Date()))
   return (
     <Stack gap="lg">
-      <Stack gap="sm">
-        <Row justify="between">
-          <Text muted size="sm" weight="medium">
-            GOOD MORNING, DESIGNER
-          </Text>
-          <Badge tone="accent">{streak === 0 ? 'Start a streak' : `${streak} day streak`}</Badge>
-        </Row>
-        <Heading level={1}>Pick your next quest</Heading>
-        <Text muted>Bite-sized courses on how AI really works. Five minutes a day keeps the black box open.</Text>
-      </Stack>
-
       <Box border="accent" radius="lg" padding="md">
-        <Row gap="md" align="center">
-          <Box grow>
-            <Stack gap="sm">
-              <Badge tone="accent">{doneToday ? 'Done for today' : `Continue · day ${streak + 1}`}</Badge>
-              <Heading level={2}>Inside the Black Box</Heading>
-              <Text muted size="sm">{`The language of AI, one card a day. ${TERMS.length} terms · ${TOPICS.length} units.`}</Text>
-              <Progress label={`${learned} of ${TERMS.length} learned`} value={Math.round((learned / TERMS.length) * 100)} />
-              <Row>
-                <Button variant="solid" tone="accent" icon="play" onPress={() => go('course')}>
-                  Continue
-                </Button>
-              </Row>
-            </Stack>
-          </Box>
-          <Image src="assets/images/orca.png" alt="Orca, your guide" size="sm" fit="contain" />
-        </Row>
+        <Stack gap="sm">
+          <Row justify="between" align="center">
+            <Badge tone="accent">{doneToday ? 'Done for today' : `Continue · day ${streak + 1}`}</Badge>
+            <LessonsChip />
+          </Row>
+          <Heading level={2}>Inside the Black Box</Heading>
+          <Text muted size="sm">{`The language of AI, one card a day. ${TERMS.length} terms · ${TOPICS.length} units.`}</Text>
+          <Progress label={`${learned} of ${TERMS.length} learned`} value={Math.round((learned / TERMS.length) * 100)} />
+          <Row gap="sm">
+            <Button variant="solid" tone="accent" icon="play" onPress={() => go('course')}>
+              Continue
+            </Button>
+            <DictionaryButton />
+          </Row>
+        </Stack>
       </Box>
 
       <Stack gap="sm">
@@ -237,7 +240,6 @@ function Library() {
           ))}
         </Stack>
       </Stack>
-      <DictionaryButton />
     </Stack>
   )
 }
@@ -321,7 +323,9 @@ function Course() {
           )
         })}
       </List>
-      <DictionaryButton />
+      <Row justify="end">
+        <DictionaryButton />
+      </Row>
     </Stack>
   )
 }

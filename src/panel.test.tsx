@@ -1,7 +1,7 @@
 // `orca plugin test .` runs this in Node with the same runtime and checks Orca uses.
 import { assert, mount, test } from 'orca/testing'
 import { TERMS } from './content'
-import { addDays, dayKey, lastWeek, pickBite, question, recordDay, streakLength, term } from './progress'
+import { addDays, dayKey, recentDays, pickBite, question, recordDay, streakLength, term } from './progress'
 import * as panel from './panel'
 
 const has = (view: { summary(): string[] }, text: string) => view.summary().some((line) => line.includes(text))
@@ -15,10 +15,11 @@ test('streak counts consecutive days and forgives an unfinished today', () => {
   assert.equal(streakLength([d(-3), d(-1)], now), 1)
   assert.equal(streakLength([d(-3)], now), 0)
   assert.deepEqual(recordDay([d(0), d(-1)], now), [d(-1), d(0)])
-  const week = lastWeek([d(0), d(-2)], now)
-  assert.equal(week.length, 7)
-  assert.deepEqual(week.filter((w) => w.done).map((w) => w.key), [d(-2), d(0)])
-  assert.equal(week[6].label, 'Today')
+  const recent = recentDays([d(0), d(-2)], now)
+  assert.equal(recent.length, 5)
+  assert.deepEqual(recent.map((w) => w.key), [d(0), d(-1), d(-2), d(-3), d(-4)])
+  assert.deepEqual(recent.map((w) => w.done), [true, false, true, false, false])
+  assert.equal(recent[0].label, 'Today')
 })
 
 test('a bite serves the next three unlearned cards and a question from their unit', () => {
@@ -34,7 +35,7 @@ test('a bite serves the next three unlearned cards and a question from their uni
 
 test('library → dashboard → bite → complete builds the streak and XP', async () => {
   const view = await mount(panel)
-  assert.ok(has(view, 'Pick your next quest'))
+  assert.ok(view.find({ text: 'Inside the Black Box' }))
   assert.ok(view.find({ text: 'Neural Networks' }))
 
   await view.press({ text: 'Continue' })
@@ -65,10 +66,19 @@ test('library → dashboard → bite → complete builds the streak and XP', asy
   await view.unmount()
 })
 
+test('the dictionary opens from the library card', async () => {
+  const view = await mount(panel)
+  await view.press({ text: 'Dictionary' })
+  assert.ok(has(view, 'Dictionary'))
+  await view.press({ text: '‹ Back' })
+  assert.ok(view.find({ text: 'Top courses' }))
+  await view.unmount()
+})
+
 test('the dictionary opens from the dashboard and returns there', async () => {
   const view = await mount(panel)
   await view.press({ text: 'Continue' })
-  await view.press({ label: 'Open dictionary' })
+  await view.press({ text: 'Dictionary' })
   assert.ok(has(view, 'Dictionary'))
   await view.type({ label: 'Search the dictionary' }, 'injection')
   const titles = () => view.findAll({ type: 'Collapsible' }).map((c) => c.props.title)

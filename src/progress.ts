@@ -47,13 +47,13 @@ export interface WeekDay {
 
 const LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-/** The last seven days, oldest first, ending today. */
-export function lastWeek(days: readonly string[], now: Date): WeekDay[] {
+/** Today, then the days before it: reads left to right as the streak runs back in time. */
+export function recentDays(days: readonly string[], now: Date, count = 5): WeekDay[] {
   const done = new Set(days)
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(now, i - 6)
+  return Array.from({ length: count }, (_, i) => {
+    const date = addDays(now, -i)
     const key = dayKey(date)
-    return { key, label: i === 6 ? 'Today' : LETTERS[date.getDay()], done: done.has(key), today: i === 6 }
+    return { key, label: i === 0 ? 'Today' : LETTERS[date.getDay()], done: done.has(key), today: i === 0 }
   })
 }
 
