@@ -454,17 +454,12 @@ function CardStep({ lesson: l }: { lesson: Lesson }) {
             </Row>
           </Stack>
         ) : (
-          <Stack gap="lg" align="center">
+          <Stack gap={card.front ? 'sm' : 'lg'} align="center">
             <Heading level={1}>{card.term}</Heading>
-            {card.front ? <Text>{card.front}</Text> : null}
+            {/* Orca's Text has no centering for wrapped lines; EmptyState centers its title. */}
+            {card.front ? <EmptyState title={card.front} /> : null}
             <CardPicture card={card} />
-            <Text muted>
-              {isPractice
-                ? 'What do you think is going on? Then flip.'
-                : card.image
-                  ? 'Look at the picture. What do you think it means? Then flip.'
-                  : 'Say what you think it means out loud. Then flip.'}
-            </Text>
+            <Text muted>{isPractice ? 'Guess what’s going on, then flip.' : 'Guess what it means, then flip.'}</Text>
             <Button variant="solid" tone="accent" icon="refresh" onPress={() => patchLesson({ flipped: true })}>
               Flip card
             </Button>
