@@ -23,19 +23,28 @@ import {
   Text,
   update,
 } from 'orca'
-import { searchTerms, TERMS, topicLabel, TOPICS } from './content'
-import { COURSES, TERM_IMAGES, UNIT_IMAGES, type Course, type CourseImage } from './courses'
+import { searchTerms, TERMS, topicLabel } from './content'
 import {
-  CARDS_PER_BITE,
-  currentTopic,
+  BLACK_BOX_ID,
+  course as getCourse,
+  COURSES,
+  unitLabel,
+  type Article,
+  type Card,
+  type CardImage,
+  type Course,
+  type PlayableCourse,
+} from './courses'
+import { ARTICLES } from './media'
+import {
+  card as getCard,
+  currentUnit,
   dayKey,
-  recentDays,
   level,
   pickBite,
-  question,
+  recentDays,
   recordDay,
   streakLength,
-  term,
   XP_PER_BITE,
   XP_PER_CARD,
   XP_PER_CORRECT,
@@ -46,25 +55,28 @@ type View = 'library' | 'course' | 'lesson' | 'complete' | 'dictionary' | 'commu
 
 interface Lesson {
   bite: Bite
+  /** 0..cards-1 are flashcards, then one quiz question per card. */
   step: number
   flipped: boolean
   choice: string
   checked: boolean
+  correct: number
   xp: number
-  learned: number
 }
 
 // Keyed atoms survive hot reloads; `persist: 'plugin'` ones also survive restarts.
 const view = atom<View>('view', 'library')
 const returnTo = atom<View>('returnTo', 'library')
-const lesson = atom<Lesson | null>('lesson', null)
+const lesson = atom<Lesson | null>('lesson-v2', null)
 const query = atom('query', '')
+const activeCourse = atom('activeCourse', BLACK_BOX_ID, { persist: 'plugin' })
 const known = atom<string[]>('known', [], { persist: 'plugin' })
-const solved = atom<string[]>('solved', [], { persist: 'plugin' })
 const days = atom<string[]>('days', [], { persist: 'plugin' })
 const xp = atom('xp', 0, { persist: 'plugin' })
 
 const go = (next: View) => set(view, next)
+const current = (): PlayableCourse => getCourse(read(activeCourse))
+const learnedIn = (c: PlayableCourse, ids: readonly string[]) => c.cards.filter((x) => ids.includes(x.id)).length
 
 /** Opens a side page (dictionary, community) and remembers where to come back to. */
 function openPage(page: 'dictionary' | 'community') {
@@ -75,9 +87,14 @@ function openPage(page: 'dictionary' | 'community') {
 
 const openDictionary = () => openPage('dictionary')
 
+function openCourse(id: string) {
+  set(activeCourse, id)
+  go('course')
+}
+
 function startBite() {
-  const bite = pickBite(read(known), read(solved), read(days).length)
-  set(lesson, { bite, step: 0, flipped: false, choice: '', checked: false, xp: 0, learned: 0 })
+  const bite = pickBite(current(), read(known), read(days).length)
+  set(lesson, { bite, step: 0, flipped: false, choice: '', checked: false, correct: 0, xp: 0 })
   go('lesson')
 }
 
@@ -90,21 +107,23 @@ function answerCard(gotIt: boolean) {
   if (!l) return
   const id = l.bite.cards[l.step]
   if (gotIt) update(known, (ids) => (ids.includes(id) ? ids : [...ids, id]))
-  patchLesson({
-    step: l.step + 1,
-    flipped: false,
-    xp: l.xp + (gotIt ? XP_PER_CARD : 0),
-    learned: l.learned + (gotIt ? 1 : 0),
-  })
+  patchLesson({ step: l.step + 1, flipped: false, xp: l.xp + (gotIt ? XP_PER_CARD : 0) })
 }
 
 function checkAnswer() {
   const l = read(lesson)
   if (!l) return
-  const q = question(l.bite.questionId)
+  const q = l.bite.questions[l.step - l.bite.cards.length]
   const correct = l.choice === String(q.answer)
-  if (correct) update(solved, (ids) => (ids.includes(q.id) ? ids : [...ids, q.id]))
-  patchLesson({ checked: true, xp: l.xp + (correct ? XP_PER_CORRECT : 0) })
+  patchLesson({ checked: true, correct: l.correct + (correct ? 1 : 0), xp: l.xp + (correct ? XP_PER_CORRECT : 0) })
+}
+
+function nextQuestion() {
+  const l = read(lesson)
+  if (!l) return
+  const last = l.step - l.bite.cards.length >= l.bite.questions.length - 1
+  if (last) return finishBite()
+  patchLesson({ step: l.step + 1, choice: '', checked: false })
 }
 
 function finishBite() {
@@ -142,14 +161,38 @@ function LessonsChip() {
   )
 }
 
-function Credit({ image }: { image: CourseImage }) {
+function Credit({ image }: { image: CardImage }) {
+  const { text, href } = image.credit
   return (
     <Row>
       <Text muted size="xs">
-        {`Image: ${image.credit.text} · `}
-        <Link href={image.credit.href}>source</Link>
+        {href ? `Image: ${text} · ` : `Image: ${text}`}
+        {href ? <Link href={href}>source</Link> : null}
       </Text>
     </Row>
+  )
+}
+
+function GoDeeper({ article, center = false }: { article: Article; center?: boolean }) {
+  return (
+    <Stack gap="xs" align={center ? 'center' : 'start'}>
+      <Text muted size="xs" weight="semibold">{`GO DEEPER · ${article.source.toUpperCase()}`}</Text>
+      <Text size="sm">
+        <Link href={article.href}>{`${article.title} →`}</Link>
+      </Text>
+    </Stack>
+  )
+}
+
+/** The picture on the front of a card, its credit, and the article it leads to. */
+function CardPicture({ card }: { card: Card }) {
+  if (!card.image) return null
+  return (
+    <Stack gap="xs" align="center">
+      <Image src={card.image.src} alt={card.image.alt} size="md" fit="contain" rounded />
+      <Credit image={card.image} />
+      {card.article ? <GoDeeper article={card.article} center /> : null}
+    </Stack>
   )
 }
 
@@ -186,14 +229,16 @@ function Week() {
 // ——— 1. Course library ———
 
 function CourseCard({ course }: { course: Course }) {
-  const badge =
-    course.status === 'active' ? (
-      <Badge tone="accent">Current course</Badge>
-    ) : course.status === 'capstone' ? (
-      <Badge>Capstone</Badge>
-    ) : (
-      <Badge>Coming soon</Badge>
-    )
+  const isCurrent = course.id === read(activeCourse)
+  const badge = isCurrent ? (
+    <Badge tone="accent">Current course</Badge>
+  ) : course.status === 'playable' ? (
+    <Badge>New</Badge>
+  ) : course.status === 'capstone' ? (
+    <Badge>Capstone</Badge>
+  ) : (
+    <Badge>Coming soon</Badge>
+  )
   return (
     <Box border radius="md" padding="sm">
       <Row gap="md" align="start">
@@ -209,6 +254,13 @@ function CourseCard({ course }: { course: Course }) {
             <Text muted size="sm">
               {course.blurb}
             </Text>
+            {course.status === 'playable' && !isCurrent ? (
+              <Row>
+                <Button variant="outline" size="sm" icon="play" onPress={() => openCourse(course.id)}>
+                  Start course
+                </Button>
+              </Row>
+            ) : null}
           </Stack>
         </Box>
       </Row>
@@ -217,20 +269,20 @@ function CourseCard({ course }: { course: Course }) {
 }
 
 function Library() {
-  const streak = streakLength(read(days), new Date())
-  const learned = read(known).length
-  const doneToday = read(days).includes(dayKey(new Date()))
+  const c = current()
+  const learned = learnedIn(c, read(known))
   return (
     <Stack gap="lg">
       <Box border="accent" radius="lg" padding="md">
         <Stack gap="sm">
-          <Row justify={doneToday ? 'end' : 'between'} align="center">
-            {doneToday ? null : <Badge tone="accent">{`Continue · day ${streak + 1}`}</Badge>}
+          <Row justify="between" align="center">
+            <Heading level={2}>{c.title}</Heading>
             <LessonsChip />
           </Row>
-          <Heading level={2}>Inside the Black Box</Heading>
-          <Text muted size="sm">{`The language of AI, one card a day. ${TERMS.length} terms · ${TOPICS.length} units.`}</Text>
-          <Progress label={`${learned} of ${TERMS.length} learned`} value={Math.round((learned / TERMS.length) * 100)} />
+          <Text muted size="sm">
+            {c.blurb}
+          </Text>
+          <Progress label={`${learned} of ${c.cards.length} learned`} value={Math.round((learned / c.cards.length) * 100)} />
           <Row gap="sm">
             <Button variant="solid" tone="accent" icon="play" onPress={() => go('course')}>
               Continue
@@ -248,8 +300,8 @@ function Library() {
           </Button>
         </Row>
         <Stack gap="sm">
-          {COURSES.map((c) => (
-            <CourseCard key={c.id} course={c} />
+          {COURSES.map((x) => (
+            <CourseCard key={x.id} course={x} />
           ))}
         </Stack>
       </Stack>
@@ -259,16 +311,19 @@ function Library() {
 
 // ——— 2. Course dashboard ———
 
-function Course() {
+function Dashboard() {
+  const c = current()
   const now = new Date()
   const finished = read(days)
   const streak = streakLength(finished, now)
   const doneToday = finished.includes(dayKey(now))
   const knownIds = read(known)
   const points = read(xp)
-  const bite = pickBite(knownIds, read(solved), finished.length)
-  const topicId = currentTopic(knownIds)
-  const preview = UNIT_IMAGES[bite.topic]
+  const bite = pickBite(c, knownIds, finished.length)
+  const unitId = currentUnit(c, knownIds)
+  const cards = bite.cards.map((id) => getCard(c, id))
+  const teaser = cards.find((x) => x.image)
+  const reward = bite.cards.length * XP_PER_CARD + bite.questions.length * XP_PER_CORRECT + XP_PER_BITE
   return (
     <Stack gap="lg">
       <Row justify="between">
@@ -293,7 +348,9 @@ function Course() {
         </Row>
         <Week />
         <Text muted size="sm">
-          {doneToday ? 'Done for today. Come back tomorrow to keep the streak.' : `Finish today's bite to reach ${streak + 1} ${streak === 0 ? 'day' : 'days'}.`}
+          {doneToday
+            ? 'Done for today. Come back tomorrow to keep the streak.'
+            : `Finish today's bite to reach ${streak + 1} ${streak === 0 ? 'day' : 'days'}.`}
         </Text>
       </Stack>
 
@@ -303,35 +360,39 @@ function Course() {
             <Text tone="accent" size="xs" weight="semibold">
               {bite.review ? "TODAY'S REVIEW · 5 MIN" : "TODAY'S BITE · 5 MIN"}
             </Text>
-            <Text muted size="xs">{`+${CARDS_PER_BITE * XP_PER_CARD + XP_PER_CORRECT + XP_PER_BITE} XP`}</Text>
+            <Text muted size="xs">{`+${reward} XP`}</Text>
           </Row>
-          <Heading level={3}>{topicLabel(bite.topic)}</Heading>
-          <Text muted size="sm">{`${bite.cards.length} cards and a quick quiz: ${bite.cards.map((id) => term(id).term).join(', ')}.`}</Text>
-          {preview ? (
+          <Text muted size="xs" weight="semibold">
+            {`${c.title.toUpperCase()} · ${unitLabel(c, bite.topic).toUpperCase()}`}
+          </Text>
+          <Text muted>{`${cards.length} cards, then a question on each: ${cards.map((x) => x.term).join(', ')}.`}</Text>
+          {teaser?.image ? (
             <Stack gap="xs">
-              <Image src={preview.src} alt={preview.alt} size="md" fit="contain" rounded />
-              <Credit image={preview} />
+              <Image src={teaser.image.src} alt={teaser.image.alt} size="md" fit="contain" rounded />
+              <Credit image={teaser.image} />
             </Stack>
           ) : null}
-          <Button variant="solid" tone="accent" icon="play" onPress={startBite}>
-            {doneToday ? 'Practice another bite' : 'Start'}
-          </Button>
+          <Row>
+            <Button variant="solid" tone="accent" icon="play" onPress={startBite}>
+              {doneToday ? 'Practice another bite' : 'Start'}
+            </Button>
+          </Row>
         </Stack>
       </Box>
 
       <List label="Your path">
-        {TOPICS.map((t, i) => {
-          const terms = TERMS.filter((x) => x.topic === t.id)
-          const have = terms.filter((x) => knownIds.includes(x.id)).length
-          const done = have === terms.length
-          const current = t.id === topicId && !done
+        {c.units.map((u, i) => {
+          const unitCards = c.cards.filter((x) => x.topic === u.id)
+          const have = unitCards.filter((x) => knownIds.includes(x.id)).length
+          const done = have === unitCards.length
+          const here = u.id === unitId && !done
           return (
             <ListItem
-              key={t.id}
-              icon={done ? 'check' : current ? 'play' : 'flag'}
-              title={`${i + 1}. ${t.label}`}
-              description={`${have}/${terms.length} learned${current ? ' · you are here' : ''}`}
-              current={current}
+              key={u.id}
+              icon={done ? 'check' : here ? 'play' : 'flag'}
+              title={`${i + 1}. ${u.label}`}
+              description={`${have}/${unitCards.length} learned${here ? ' · you are here' : ''}`}
+              current={here}
             />
           )
         })}
@@ -340,19 +401,20 @@ function Course() {
   )
 }
 
-// ——— 3–5. Lesson: flashcards, then a quiz ———
+// ——— 3–5. Lesson: flashcards, then one question per card ———
 
 function LessonView() {
   const l = read(lesson)
   if (!l) return <EmptyState icon="book" title="No lesson in progress" />
-  const total = l.bite.cards.length + 1
+  const total = l.bite.cards.length + l.bite.questions.length
   const onQuiz = l.step >= l.bite.cards.length
+  const done = l.step + (l.checked ? 1 : 0)
   return (
     <Stack gap="lg">
       <Row gap="sm" align="center">
         <IconButton icon="close" label="Quit lesson" variant="ghost" onPress={() => go('course')} />
         <Box grow>
-          <Progress label="Lesson progress" labelHidden value={Math.round(((l.step + (l.checked ? 1 : 0)) / total) * 100)} />
+          <Progress label="Lesson progress" labelHidden value={Math.round((done / total) * 100)} />
         </Box>
         <Text size="sm" weight="semibold">{`${Math.min(l.step + 1, total)}/${total}`}</Text>
       </Row>
@@ -362,23 +424,26 @@ function LessonView() {
 }
 
 function CardStep({ lesson: l }: { lesson: Lesson }) {
-  const card = term(l.bite.cards[l.step])
+  const c = getCourse(l.bite.courseId)
+  const card = getCard(c, l.bite.cards[l.step])
+  const isPractice = Boolean(card.front)
   return (
     <Box border="accent" radius="lg" padding="lg">
       <Stack gap="lg">
         <Row justify="between">
           <Text muted size="xs" weight="semibold">
-            {l.flipped ? 'DEFINITION' : l.bite.review ? 'REVIEW' : 'NEW TERM'}
+            {l.flipped ? (isPractice ? "WHAT'S GOING ON" : 'DEFINITION') : l.bite.review ? 'REVIEW' : c.frontLabel}
           </Text>
-          <Badge>{topicLabel(card.topic)}</Badge>
+          <Badge>{unitLabel(c, card.topic)}</Badge>
         </Row>
         {l.flipped ? (
           <Stack gap="md">
-            <Heading level={2}>{card.term}</Heading>
+            <Heading level={2}>{card.answer ?? card.term}</Heading>
             <Text>{card.definition}</Text>
-            <Callout tone="accent" icon="lightbulb" title="Designer's lens">
+            <Callout tone="accent" icon="lightbulb" title={isPractice ? 'Design move' : "Designer's lens"}>
               <Text>{card.lens}</Text>
             </Callout>
+            {card.article && !card.image ? <GoDeeper article={card.article} /> : null}
             <Row gap="sm">
               <Button variant="outline" onPress={() => answerCard(false)}>
                 Not yet
@@ -391,13 +456,15 @@ function CardStep({ lesson: l }: { lesson: Lesson }) {
         ) : (
           <Stack gap="lg" align="center">
             <Heading level={1}>{card.term}</Heading>
-            {TERM_IMAGES[card.id] ? (
-              <Stack gap="xs" align="center">
-                <Image src={TERM_IMAGES[card.id].src} alt={TERM_IMAGES[card.id].alt} size="md" fit="contain" rounded />
-                <Credit image={TERM_IMAGES[card.id]} />
-              </Stack>
-            ) : null}
-            <Text muted>{TERM_IMAGES[card.id] ? 'Look at the picture. What do you think it means? Then flip.' : 'Say what you think it means out loud. Then flip.'}</Text>
+            {card.front ? <Text>{card.front}</Text> : null}
+            <CardPicture card={card} />
+            <Text muted>
+              {isPractice
+                ? 'What do you think is going on? Then flip.'
+                : card.image
+                  ? 'Look at the picture. What do you think it means? Then flip.'
+                  : 'Say what you think it means out loud. Then flip.'}
+            </Text>
             <Button variant="solid" tone="accent" icon="refresh" onPress={() => patchLesson({ flipped: true })}>
               Flip card
             </Button>
@@ -409,12 +476,14 @@ function CardStep({ lesson: l }: { lesson: Lesson }) {
 }
 
 function QuizStep({ lesson: l }: { lesson: Lesson }) {
-  const q = question(l.bite.questionId)
+  const index = l.step - l.bite.cards.length
+  const q = l.bite.questions[index]
   const correct = l.choice === String(q.answer)
+  const last = index === l.bite.questions.length - 1
   return (
     <Stack gap="md">
       <Text tone="accent" size="xs" weight="semibold">
-        QUICK QUIZ
+        {`QUICK QUIZ · ${index + 1} OF ${l.bite.questions.length}`}
       </Text>
       <Heading level={2}>{q.prompt}</Heading>
       <RadioGroup
@@ -434,14 +503,18 @@ function QuizStep({ lesson: l }: { lesson: Lesson }) {
           >
             <Text>{q.explain}</Text>
           </Callout>
-          <Button variant="solid" tone={correct ? 'success' : 'accent'} icon="next" onPress={finishBite}>
-            Continue
-          </Button>
+          <Row>
+            <Button variant="solid" tone={correct ? 'success' : 'accent'} icon="next" onPress={nextQuestion}>
+              {last ? 'See results' : 'Next question'}
+            </Button>
+          </Row>
         </Stack>
       ) : (
-        <Button variant="solid" tone="accent" icon="check" disabled={l.choice === ''} onPress={checkAnswer}>
-          Check answer
-        </Button>
+        <Row>
+          <Button variant="solid" tone="accent" icon="check" disabled={l.choice === ''} onPress={checkAnswer}>
+            Check answer
+          </Button>
+        </Row>
       )}
     </Stack>
   )
@@ -451,8 +524,9 @@ function QuizStep({ lesson: l }: { lesson: Lesson }) {
 
 function Complete() {
   const l = read(lesson)
+  const c = current()
   const streak = streakLength(read(days), new Date())
-  const next = pickBite(read(known), read(solved), read(days).length)
+  const next = pickBite(c, read(known), read(days).length)
   return (
     <Stack gap="lg" align="center">
       <Heading level={1}>Bite complete!</Heading>
@@ -470,8 +544,8 @@ function Complete() {
             <Heading level={2}>{`+${l?.xp ?? 0}`}</Heading>
           </Box>
           <Box border radius="md" padding="sm" align="center">
-            <Text muted size="xs">LEARNED</Text>
-            <Heading level={2}>{String(read(known).length)}</Heading>
+            <Text muted size="xs">QUIZ</Text>
+            <Heading level={2}>{l ? `${l.correct}/${l.bite.questions.length}` : '–'}</Heading>
           </Box>
         </Grid>
       </Box>
@@ -483,14 +557,16 @@ function Complete() {
           <Text muted size="xs" weight="semibold">
             TOMORROW
           </Text>
-          <Text>{`${next.cards.map((id) => term(id).term).join(', ')}. Come back to keep the streak alive.`}</Text>
+          <Text>{`${next.cards.map((id) => getCard(c, id).term).join(', ')}. Come back to keep the streak alive.`}</Text>
         </Stack>
       </Box>
       <Box width="100%">
         <Stack gap="sm">
-          <Button variant="solid" tone="accent" onPress={() => go('course')}>
-            Back to my path
-          </Button>
+          <Row>
+            <Button variant="solid" tone="accent" onPress={() => go('course')}>
+              Back to my path
+            </Button>
+          </Row>
           <Row gap="sm">
             <Button variant="outline" icon="globe" onPress={() => openPage('community')}>
               Share
@@ -516,7 +592,7 @@ function Dictionary() {
         <Button variant="ghost" size="sm" onPress={() => go(read(returnTo))}>
           ‹ Back
         </Button>
-        <Badge>{`${knownIds.length}/${TERMS.length} learned`}</Badge>
+        <Badge>{`${TERMS.filter((t) => knownIds.includes(t.id)).length}/${TERMS.length} learned`}</Badge>
       </Row>
       <Heading level={2}>Dictionary</Heading>
       <Input
@@ -532,14 +608,11 @@ function Dictionary() {
       ) : (
         <Stack gap="xs">
           {results.map((t) => (
-            <Collapsible
-              key={t.id}
-              title={knownIds.includes(t.id) ? `${t.term} ✓` : t.term}
-              description={topicLabel(t.topic)}
-            >
+            <Collapsible key={t.id} title={knownIds.includes(t.id) ? `${t.term} ✓` : t.term} description={topicLabel(t.topic)}>
               <Stack gap="sm">
                 <Text>{t.definition}</Text>
                 <Text muted size="sm">{`Designer's lens: ${t.lens}`}</Text>
+                {ARTICLES[t.id] ? <GoDeeper article={ARTICLES[t.id]} /> : null}
               </Stack>
             </Collapsible>
           ))}
@@ -576,7 +649,7 @@ function Community() {
 export default function Panel() {
   switch (read(view)) {
     case 'course':
-      return <Course />
+      return <Dashboard />
     case 'lesson':
       return <LessonView />
     case 'complete':

@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "inside-the-black-box",
   "name": "Inside the Black Box",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Learn the language of AI in daily bites: streaks, flashcards, quizzes and a dictionary for designers.",
   "engines": {
     "orca": ">=1.4.246"

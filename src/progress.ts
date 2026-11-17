@@ -1,5 +1,6 @@
 // Streaks, XP and picking today's bite. Pure functions so they are easy to test.
-import { QUESTIONS, TERMS, TOPICS, type Question, type Term } from './content'
+import type { Question } from './content'
+import { hash, type Card, type PlayableCourse } from './courses'
 
 export const CARDS_PER_BITE = 3
 export const XP_PER_CARD = 5
@@ -62,44 +63,39 @@ export function level(xp: number): number {
 }
 
 export interface Bite {
+  courseId: string
   cards: string[]
-  questionId: string
+  questions: Question[]
   topic: string
   review: boolean
 }
 
-/** The unit to work on: the first one with terms left to learn. */
-export function currentTopic(known: readonly string[]): string {
+/** The unit to work on: the first one with cards left to learn. */
+export function currentUnit(c: PlayableCourse, known: readonly string[]): string {
   const k = new Set(known)
-  return TOPICS.find((t) => TERMS.some((term) => term.topic === t.id && !k.has(term.id)))?.id ?? TOPICS[0].id
+  return c.units.find((u) => c.cards.some((card) => card.topic === u.id && !k.has(card.id)))?.id ?? c.units[0].id
 }
 
-/** Today's bite: the next unlearned cards in path order, then one quiz question. */
-export function pickBite(known: readonly string[], solved: readonly string[], dayIndex = 0): Bite {
+/** Today's bite: the next unlearned cards in path order, then one question per card. */
+export function pickBite(c: PlayableCourse, known: readonly string[], dayIndex = 0): Bite {
   const k = new Set(known)
-  const fresh = TERMS.filter((t) => !k.has(t.id))
+  const fresh = c.cards.filter((card) => !k.has(card.id))
   const review = fresh.length === 0
-  const pool = review ? rotate(TERMS, (dayIndex * CARDS_PER_BITE) % TERMS.length) : fresh
+  const pool = review ? rotate(c.cards, (dayIndex * CARDS_PER_BITE) % c.cards.length) : fresh
   const cards = pool.slice(0, CARDS_PER_BITE)
-  const topic = cards[0].topic
-  const s = new Set(solved)
-  const inTopic = QUESTIONS.filter((q) => q.topic === topic)
-  const question = inTopic.find((q) => !s.has(q.id)) ?? inTopic[dayIndex % inTopic.length] ?? QUESTIONS[0]
-  return { cards: cards.map((c) => c.id), questionId: question.id, topic, review }
+  const ids = cards.map((card) => card.id)
+  // Wrong answers may only use cards the player has met: today's cards and ones already learned.
+  const seen = [...new Set([...ids, ...known.filter((id) => c.cards.some((card) => card.id === id))])]
+  const questions = cards.map((card, i) => c.question(card, seen, hash(card.id) * 2 + i))
+  return { courseId: c.id, cards: ids, questions, topic: cards[0].topic, review }
 }
 
 function rotate<T>(list: readonly T[], by: number): T[] {
   return [...list.slice(by), ...list.slice(0, by)]
 }
 
-export function term(id: string): Term {
-  const found = TERMS.find((t) => t.id === id)
-  if (!found) throw new Error(`Unknown term ${id}`)
-  return found
-}
-
-export function question(id: string): Question {
-  const found = QUESTIONS.find((q) => q.id === id)
-  if (!found) throw new Error(`Unknown question ${id}`)
+export function card(c: PlayableCourse, id: string): Card {
+  const found = c.cards.find((x) => x.id === id)
+  if (!found) throw new Error(`Unknown card ${id}`)
   return found
 }
