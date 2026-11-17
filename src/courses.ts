@@ -75,7 +75,6 @@ export const COURSES: Course[] = [
     blurb: 'The math behind meaning',
     icon: 'assets/icons/matrix.png',
     status: 'soon',
-    image: IMAGES.matrix,
   },
   {
     id: 'neural',
@@ -83,7 +82,6 @@ export const COURSES: Course[] = [
     blurb: 'Layers, weights and learning',
     icon: 'assets/icons/neural.png',
     status: 'soon',
-    image: IMAGES.neuralNetwork,
   },
   {
     id: 'safety',
@@ -91,7 +89,6 @@ export const COURSES: Course[] = [
     blurb: 'Alignment, red teams, guardrails',
     icon: 'assets/icons/shield.png',
     status: 'soon',
-    image: IMAGES.features,
   },
   { id: 'probability', title: 'Probability', blurb: 'Why one prompt gives many answers', icon: 'assets/icons/dice.png', status: 'soon' },
   { id: 'binary', title: 'Binary & Data', blurb: 'How computers store everything', icon: 'assets/icons/binary.png', status: 'soon' },
@@ -104,4 +101,13 @@ export const UNIT_IMAGES: Record<string, CourseImage> = {
   basics: IMAGES.neuralNetwork,
   inside: IMAGES.embedding,
   safety: IMAGES.features,
+}
+
+/** Pictures shown on the term side of a flashcard, as a hint before flipping. */
+export const TERM_IMAGES: Record<string, CourseImage> = {
+  'neural-network': IMAGES.neuralNetwork,
+  parameters: IMAGES.matrix,
+  embedding: IMAGES.embedding,
+  interpretability: IMAGES.features,
+  features: IMAGES.features,
 }

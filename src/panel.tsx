@@ -24,7 +24,7 @@ import {
   update,
 } from 'orca'
 import { searchTerms, TERMS, topicLabel, TOPICS } from './content'
-import { COURSES, UNIT_IMAGES, type Course, type CourseImage } from './courses'
+import { COURSES, TERM_IMAGES, UNIT_IMAGES, type Course, type CourseImage } from './courses'
 import {
   CARDS_PER_BITE,
   currentTopic,
@@ -42,7 +42,7 @@ import {
   type Bite,
 } from './progress'
 
-type View = 'library' | 'course' | 'lesson' | 'complete' | 'dictionary'
+type View = 'library' | 'course' | 'lesson' | 'complete' | 'dictionary' | 'community'
 
 interface Lesson {
   bite: Bite
@@ -66,11 +66,14 @@ const xp = atom('xp', 0, { persist: 'plugin' })
 
 const go = (next: View) => set(view, next)
 
-function openDictionary() {
+/** Opens a side page (dictionary, community) and remembers where to come back to. */
+function openPage(page: 'dictionary' | 'community') {
   const from = read(view)
-  if (from !== 'dictionary') set(returnTo, from)
-  go('dictionary')
+  if (from !== 'dictionary' && from !== 'community') set(returnTo, from)
+  go(page)
 }
+
+const openDictionary = () => openPage('dictionary')
 
 function startBite() {
   const bite = pickBite(read(known), read(solved), read(days).length)
@@ -195,11 +198,7 @@ function CourseCard({ course }: { course: Course }) {
     <Box border radius="md" padding="sm">
       <Row gap="md" align="start">
         <Box width={64} height={64} shrink={false} radius="sm" align="center" justify="center">
-          {course.image ? (
-            <Image src={course.image.src} alt={course.image.alt} size="full" fit="cover" rounded />
-          ) : (
-            <Image src={course.icon} alt="" size="full" fit="contain" />
-          )}
+          <Image src={course.icon} alt="" size="full" fit="contain" />
         </Box>
         <Box grow>
           <Stack gap="xs">
@@ -210,7 +209,6 @@ function CourseCard({ course }: { course: Course }) {
             <Text muted size="sm">
               {course.blurb}
             </Text>
-            {course.image ? <Credit image={course.image} /> : null}
           </Stack>
         </Box>
       </Row>
@@ -243,7 +241,12 @@ function Library() {
       </Box>
 
       <Stack gap="sm">
-        <Heading level={3}>Top courses</Heading>
+        <Row justify="between" align="center">
+          <Heading level={3}>Top courses</Heading>
+          <Button variant="ghost" size="sm" onPress={() => openPage('community')}>
+            See community →
+          </Button>
+        </Row>
         <Stack gap="sm">
           {COURSES.map((c) => (
             <CourseCard key={c.id} course={c} />
@@ -388,7 +391,13 @@ function CardStep({ lesson: l }: { lesson: Lesson }) {
         ) : (
           <Stack gap="lg" align="center">
             <Heading level={1}>{card.term}</Heading>
-            <Text muted>Say what you think it means out loud. Then flip.</Text>
+            {TERM_IMAGES[card.id] ? (
+              <Stack gap="xs" align="center">
+                <Image src={TERM_IMAGES[card.id].src} alt={TERM_IMAGES[card.id].alt} size="md" fit="contain" rounded />
+                <Credit image={TERM_IMAGES[card.id]} />
+              </Stack>
+            ) : null}
+            <Text muted>{TERM_IMAGES[card.id] ? 'Look at the picture. What do you think it means? Then flip.' : 'Say what you think it means out loud. Then flip.'}</Text>
             <Button variant="solid" tone="accent" icon="refresh" onPress={() => patchLesson({ flipped: true })}>
               Flip card
             </Button>
@@ -482,9 +491,14 @@ function Complete() {
           <Button variant="solid" tone="accent" onPress={() => go('course')}>
             Back to my path
           </Button>
-          <Button variant="ghost" icon="book" onPress={openDictionary}>
-            Open the dictionary
-          </Button>
+          <Row gap="sm">
+            <Button variant="outline" icon="globe" onPress={() => openPage('community')}>
+              Share
+            </Button>
+            <Button variant="ghost" icon="book" onPress={openDictionary}>
+              Dictionary
+            </Button>
+          </Row>
         </Stack>
       </Box>
     </Stack>
@@ -535,6 +549,30 @@ function Dictionary() {
   )
 }
 
+// ——— Community (empty until sharing goes live) ———
+
+function Community() {
+  return (
+    <Stack gap="md">
+      <Row justify="between">
+        <Button variant="ghost" size="sm" onPress={() => go(read(returnTo))}>
+          ‹ Back
+        </Button>
+      </Row>
+      <Heading level={2}>Community</Heading>
+      <EmptyState
+        icon="globe"
+        title="The community is on its way"
+        description="Soon you'll see other designers' streaks, points and what they learned, and share your own bites here."
+      >
+        <Button variant="solid" tone="accent" icon="book" onPress={() => go('library')}>
+          Keep learning
+        </Button>
+      </EmptyState>
+    </Stack>
+  )
+}
+
 export default function Panel() {
   switch (read(view)) {
     case 'course':
@@ -545,6 +583,8 @@ export default function Panel() {
       return <Complete />
     case 'dictionary':
       return <Dictionary />
+    case 'community':
+      return <Community />
     default:
       return <Library />
   }

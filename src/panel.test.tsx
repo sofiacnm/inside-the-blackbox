@@ -66,6 +66,30 @@ test('library → dashboard → bite → complete builds the streak and XP', asy
   await view.unmount()
 })
 
+test('community opens from the library to an empty state', async () => {
+  const view = await mount(panel)
+  await view.press({ text: 'See community →' })
+  assert.ok(has(view, 'The community is on its way'))
+  await view.press({ text: '‹ Back' })
+  assert.ok(view.find({ text: 'Top courses' }))
+  await view.unmount()
+})
+
+test('flashcards with a picture show it before the flip', async () => {
+  const view = await mount(panel)
+  await view.press({ text: 'Continue' })
+  await view.press({ text: 'Start' })
+  assert.equal(view.find({ type: 'Image' }), null, 'Artificial intelligence has no picture')
+  for (let i = 0; i < 2; i++) {
+    await view.press({ text: 'Flip card' })
+    await view.press({ text: 'Got it' })
+  }
+  assert.ok(view.find({ text: 'Neural network' }))
+  assert.equal(view.find({ type: 'Image' })?.props.src, 'assets/images/neural-network.jpg')
+  assert.deepEqual(view.errors, [])
+  await view.unmount()
+})
+
 test('the dictionary opens from the library card', async () => {
   const view = await mount(panel)
   await view.press({ text: 'Dictionary' })
