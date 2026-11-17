@@ -19,7 +19,7 @@ Topics: The basics · Inside the model · Shaping behavior · Where it goes wron
 ## Install
 
 ```sh
-orca plugin install sofiacnm/orca-workshop-plugin
+orca plugin install sofiacnm/inside-the-blackbox
 ```
 
 The plugin only draws a sandboxed panel. It asks for no network, file or terminal access.
