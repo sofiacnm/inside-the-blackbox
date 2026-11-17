@@ -2,8 +2,32 @@
   "manifestVersion": 2,
   "id": "inside-the-black-box",
   "name": "Inside the Black Box",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Learn the language of AI in daily bites: streaks, flashcards, quizzes and a dictionary for designers.",
+  "license": "MIT",
+  "repository": "https://github.com/sofiacnm/orca-workshop-plugin",
+  "icon": "assets/icons/flame-large.png",
+  "cover": {
+    "path": "assets/listing/cover.jpg",
+    "alt": "Inside the Black Box: a flashcard explaining tokens with a diagram, beside the dashboard showing a day streak and today’s bite."
+  },
+  "screenshots": [
+    {
+      "path": "assets/listing/screenshot-1.jpg",
+      "alt": "The course library, the dashboard with streak and today’s bite, and the bite-complete screen.",
+      "caption": "A daily path: streaks, XP and five-minute bites"
+    },
+    {
+      "path": "assets/listing/screenshot-2.jpg",
+      "alt": "A Token flashcard with a diagram and Go deeper link, its definition with a designer’s lens, and a quiz question.",
+      "caption": "Flashcards with pictures, sources and a question on every card"
+    },
+    {
+      "path": "assets/listing/screenshot-3.jpg",
+      "alt": "An AI in Practice situation card about a forgetful chat, and the searchable dictionary.",
+      "caption": "AI in Practice situations and a searchable dictionary"
+    }
+  ],
   "engines": {
     "orca": ">=1.4.246"
   },

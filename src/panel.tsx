@@ -230,10 +230,11 @@ function Week() {
 
 function CourseCard({ course }: { course: Course }) {
   const isCurrent = course.id === read(activeCourse)
+  const started = course.status === 'playable' && learnedIn(getCourse(course.id), read(known)) > 0
   const badge = isCurrent ? (
     <Badge tone="accent">Current course</Badge>
   ) : course.status === 'playable' ? (
-    <Badge>New</Badge>
+    <Badge>{started ? 'In progress' : 'New'}</Badge>
   ) : course.status === 'capstone' ? (
     <Badge>Capstone</Badge>
   ) : (
@@ -257,7 +258,7 @@ function CourseCard({ course }: { course: Course }) {
             {course.status === 'playable' && !isCurrent ? (
               <Row>
                 <Button variant="outline" size="sm" icon="play" onPress={() => openCourse(course.id)}>
-                  Start course
+                  {started ? 'Continue course' : 'Start course'}
                 </Button>
               </Row>
             ) : null}
